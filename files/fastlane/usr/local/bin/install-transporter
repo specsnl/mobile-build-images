@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+#
+# Installs Apple's Transporter for Linux (iTMSTransporter) into the /cache volume, where fastlane finds it through
+# FASTLANE_ITUNES_TRANSPORTER_PATH. Apple's license doesn't allow redistributing Transporter, so it isn't part of the
+# image: it's downloaded from Apple, and you accept Apple's license yourself.
+
+set -euo pipefail
+
+INSTALLER_URL="https://itunesconnect.apple.com/WebObjects/iTunesConnect.woa/ra/resources/download/public/Transporter__Linux/bin"
+TARGET="${FASTLANE_ITUNES_TRANSPORTER_PATH:-$XDG_CACHE_HOME/itms}"
+USER_DIR="$XDG_CACHE_HOME/itmstransporter"
+
+usage() {
+    cat <<EOF
+Usage: install-transporter [--accept-license] [--force]
+
+Downloads Apple's Transporter for Linux and installs it into $TARGET.
+
+  --accept-license  Accept Apple's Transporter license without showing it. Only pass this when you have read and
+                    accepted the license (the License.txt in Apple's installer), e.g. in CI.
+  --force           Reinstall when Transporter is already installed.
+EOF
+}
+
+accept_license=false
+force=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --accept-license) accept_license=true ;;
+        --force) force=true ;;
+        -h | --help) usage; exit 0 ;;
+        *) usage >&2; exit 1 ;;
+    esac
+    shift
+done
+
+if [ "$(uname -m)" != "x86_64" ]; then
+    echo "Transporter for Linux only runs on x86_64: run this image with --platform linux/amd64." >&2
+    exit 1
+fi
+
+if [ -x "$TARGET/bin/iTMSTransporter" ] && ! $force; then
+    echo "Transporter is already installed in $TARGET. Pass --force to reinstall it."
+    exit 0
+fi
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+echo "Downloading Transporter for Linux from Apple..."
+curl -fsSL -o "$work/installer.sh" "$INSTALLER_URL"
+
+# The installer is a Makeself archive: a shell header of "skip" lines followed by a gzipped tarball. Its own install
+# script copies to /usr/local/itms as root, so the tarball is unpacked here instead, and checked against the SHA-256
+# in the header.
+header_value() {
+    grep -a -m 1 "^$1=" "$work/installer.sh" | cut -d '"' -f 2
+}
+skip="$(header_value skip)"
+size="$(header_value filesizes)"
+sha="$(header_value SHA)"
+if [ -z "$skip" ] || [ -z "$size" ] || [ -z "$sha" ]; then
+    echo "The Transporter installer has an unexpected format." >&2
+    exit 1
+fi
+tail -n +"$((skip + 1))" "$work/installer.sh" | head -c "$size" > "$work/payload.tar.gz"
+echo "$sha  $work/payload.tar.gz" | sha256sum --check --quiet
+mkdir "$work/payload"
+tar -xzf "$work/payload.tar.gz" -C "$work/payload"
+
+if ! $accept_license; then
+    if [ ! -t 0 ]; then
+        echo "Accepting Apple's Transporter license needs a terminal: run the container with --interactive --tty." >&2
+        echo "Pass --accept-license instead only when you have read and accepted the license." >&2
+        exit 1
+    fi
+    more "$work/payload/License.txt"
+    echo
+    read -r -p "Do you agree to the above license terms? [yes or no] " reply
+    case "$reply" in
+        y* | Y*) ;;
+        *) echo "You must agree to the license agreement to install Transporter." >&2; exit 1 ;;
+    esac
+fi
+
+rm -rf "$TARGET" "$USER_DIR"
+mkdir -p "$(dirname "$TARGET")" "$USER_DIR"
+cp -r "$work/payload/itms" "$TARGET"
+chmod 555 "$TARGET/bin/iTMSTransporter"
+
+echo "Transporter is installed in $TARGET."

@@ -15,13 +15,15 @@ silent: true
 tasks:
 
   build:
-    desc: Build the node and android images
+    desc: Build the node, android and fastlane images
     deps: [lint]
     cmds:
       - task: build:target
         vars: { TARGET: node }
       - task: build:target
         vars: { TARGET: android }
+      - task: build:target
+        vars: { TARGET: fastlane }
 
   build:node:
     desc: Build the node image
@@ -37,13 +39,21 @@ tasks:
       - task: build:target
         vars: { TARGET: android }
 
+  build:fastlane:
+    desc: Build the fastlane image
+    deps: [lint]
+    cmds:
+      - task: build:target
+        vars: { TARGET: fastlane }
+
   build:target:
     internal: true
     preconditions:
       - sh: >
           test '{{.TARGET}}' = 'node'
           -o '{{.TARGET}}' = 'android'
-        msg: TARGET needs to contain the Docker TARGET [node, android]
+          -o '{{.TARGET}}' = 'fastlane'
+        msg: TARGET needs to contain the Docker TARGET [node, android, fastlane]
     vars:
       VERSION: '{{.VERSION | default "latest"}}'
       # The Android build-tools only ship for Linux x86_64
@@ -83,6 +93,13 @@ tasks:
     cmds:
       - task: do:shell
         vars: { TARGET: android }
+
+  shell:fastlane:
+    desc: Interactive shell in the fastlane image, with the current directory mounted
+    interactive: true
+    cmds:
+      - task: do:shell
+        vars: { TARGET: fastlane }
 
   do:shell:
     internal: true

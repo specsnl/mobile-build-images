@@ -41,6 +41,12 @@ jobs:
           - target: android
             os: ubuntu-26.04
             platform: linux/amd64
+          - target: fastlane
+            os: ubuntu-26.04
+            platform: linux/amd64
+          - target: fastlane
+            os: ubuntu-26.04-arm
+            platform: linux/arm64
     with:
       runs-on: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
@@ -53,7 +59,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        target: [node, android]
+        target: [node, android, fastlane]
     with:
       runs-on: ubuntu-26.04
       target: ${{ matrix.target }}

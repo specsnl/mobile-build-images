@@ -20,6 +20,9 @@ updates:
       eclipse-temurin:
         patterns:
           - "eclipse-temurin"
+      debian:
+        patterns:
+          - "debian"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -51,6 +51,10 @@
                     {
                         "context": "Merge (android) / Merge Images (android)",
                         "integration_id": 15368
+                    },
+                    {
+                        "context": "Merge (fastlane) / Merge Images (fastlane)",
+                        "integration_id": 15368
                     }
                 ]
             }
