@@ -127,3 +127,67 @@ RUN curl -fsSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository
     && rm -rf /tmp/*
 
 USER $USER:$GROUP
+
+# Latest version of debian: https://hub.docker.com/_/debian/tags
+FROM debian:trixie-20261123-slim AS zsign
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Latest version of zsign: https://github.com/zhlynn/zsign/releases/latest
+ARG ZSIGN_VERSION=1.1.3
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update \
+    && apt-get install --assume-yes --no-install-recommends \
+        ca-certificates \
+        git \
+        g++ \
+        make \
+        pkg-config \
+        libssl-dev \
+    && git clone --quiet --depth 1 --branch "v$ZSIGN_VERSION" https://github.com/zhlynn/zsign.git /tmp/zsign \
+    && make --directory /tmp/zsign/build/linux VERSION="$ZSIGN_VERSION" \
+    && install -m 755 /tmp/zsign/bin/zsign /usr/local/bin/zsign
+
+FROM node AS fastlane
+
+ARG USER=code
+ARG GROUP=code
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Latest version of fastlane: https://rubygems.org/gems/fastlane
+ARG FASTLANE_VERSION=2.242.0
+
+ENV BUNDLE_PATH="$XDG_CACHE_HOME/bundle"
+ENV GEM_SPEC_CACHE="$XDG_CACHE_HOME/gem/specs"
+ENV FASTLANE_ITUNES_TRANSPORTER_PATH="$XDG_CACHE_HOME/itms"
+ENV FASTLANE_SKIP_UPDATE_CHECK=1
+ENV FASTLANE_HIDE_CHANGELOG=1
+ENV FASTLANE_OPT_OUT_USAGE=1
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+USER 0:0
+
+RUN apt-get update \
+    # The compiler and headers stay, so projects with a Gemfile can bundle gems with native extensions
+    && apt-get install --assume-yes --no-install-recommends \
+        ruby \
+        ruby-dev \
+        ruby-bundler \
+        build-essential \
+    && gem install --no-document "fastlane:$FASTLANE_VERSION" \
+    # Transporter keeps its state in ~/.itmstransporter, which install-transporter puts in /cache next to Transporter
+    && ln -s "$XDG_CACHE_HOME/itmstransporter" "/home/$USER/.itmstransporter" \
+    && chown --no-dereference "$USER":"$GROUP" "/home/$USER/.itmstransporter" \
+    # Cleanup
+    && apt-get autoremove --assume-yes \
+    && apt-get clean --assume-yes \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* "$XDG_CACHE_HOME/gem"
+
+COPY --from=zsign /usr/local/bin/zsign /usr/local/bin/zsign
+COPY files/fastlane /
+
+USER $USER:$GROUP
