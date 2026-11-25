@@ -6,6 +6,8 @@ All notable changes to the images are documented in this file. The format is bas
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-25
+
 ### Added
 
 - `node` image: Node.js 26 (active LTS) with pnpm 12, a `fixuid` entrypoint and a `/cache` volume for the pnpm and
@@ -17,4 +19,5 @@ All notable changes to the images are documented in this file. The format is bas
   and store uploads, and `install-transporter` to install Apple's Transporter for Linux into `/cache/itms`. Published
   for `linux/amd64` and `linux/arm64`; Transporter only runs on `linux/amd64`.
 
-[Unreleased]: https://github.com/specsnl/mobile-build-images/commits/main
+[Unreleased]: https://github.com/specsnl/mobile-build-images/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/specsnl/mobile-build-images/releases/tag/1.0.0
