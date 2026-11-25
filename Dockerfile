@@ -107,12 +107,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER 0:0
 
-RUN curl -fsSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
+# /tmp is a tmpfs, so nothing in it ends up in the image. sdkmanager downloads the Android CLI it wraps into
+# ANDROID_USER_HOME, and that CLI leaves a background process writing to it, which an rm -rf would race against.
+RUN --mount=type=tmpfs,target=/tmp \
+    curl -fsSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
     && mkdir -p "$ANDROID_HOME/cmdline-tools" \
     && unzip -q /tmp/cmdline-tools.zip -d /tmp \
     && mv /tmp/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest" \
-    # sdkmanager accepts the licenses of the packages it installs. It downloads the Android CLI it wraps into
-    # ANDROID_USER_HOME, which is removed again to keep it out of the image.
+    # sdkmanager accepts the licenses of the packages it installs
     && ANDROID_USER_HOME=/tmp/android sdkmanager --install \
         "platform-tools" \
         "platforms;android-$ANDROID_PLATFORM_VERSION" \
@@ -122,8 +124,6 @@ RUN curl -fsSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository
     && test -f "$ANDROID_HOME/licenses/android-sdk-license" \
     # The SDK is writable for the user, so Gradle and sdkmanager can add packages
     && chown -R "$USER":"$GROUP" "$ANDROID_HOME" \
-    && echo "  - $ANDROID_HOME" >> /etc/fixuid/config.yml \
-    # Cleanup
-    && rm -rf /tmp/*
+    && echo "  - $ANDROID_HOME" >> /etc/fixuid/config.yml
 
 USER $USER:$GROUP
