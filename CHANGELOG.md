@@ -1,0 +1,17 @@
+# Changelog
+
+All notable changes to the images are documented in this file. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the release tags follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- `node` image: Node.js 26 (active LTS) with pnpm 12, a `fixuid` entrypoint and a `/cache` volume for the pnpm and
+  npm caches. Published for `linux/amd64` and `linux/arm64`.
+- `android` image: the `node` image plus JDK 21 (Eclipse Temurin), the Android SDK command-line tools, platform 36,
+  build-tools 36.0.0 and 35.0.0 and platform-tools, with the SDK licenses accepted. `GRADLE_USER_HOME` is
+  `/cache/gradle` and `ANDROID_USER_HOME` is `/cache/android`. Published for `linux/amd64` only.
+
+[Unreleased]: https://github.com/specsnl/mobile-build-images/commits/main
