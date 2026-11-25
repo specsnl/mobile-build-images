@@ -13,5 +13,8 @@ All notable changes to the images are documented in this file. The format is bas
 - `android` image: the `node` image plus JDK 21 (Eclipse Temurin), the Android SDK command-line tools, platform 36,
   build-tools 36.0.0 and 35.0.0 and platform-tools, with the SDK licenses accepted. `GRADLE_USER_HOME` is
   `/cache/gradle` and `ANDROID_USER_HOME` is `/cache/android`. Published for `linux/amd64` only.
+- `fastlane` image: the `node` image plus Ruby 3.3 with Bundler, fastlane 2.242.0 and zsign 1.1.3, for app signing
+  and store uploads, and `install-transporter` to install Apple's Transporter for Linux into `/cache/itms`. Published
+  for `linux/amd64` and `linux/arm64`; Transporter only runs on `linux/amd64`.
 
 [Unreleased]: https://github.com/specsnl/mobile-build-images/commits/main
