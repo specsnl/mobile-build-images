@@ -1,0 +1,103 @@
+version: "3"
+
+vars:
+  DOCKER_REPO: ghcr.io
+  DOCKER_OWNER: specsnl
+  DOCKER_IMAGE_NAME: mobile-build-images
+  # Latest version of Hadolint: https://hub.docker.com/r/hadolint/hadolint/tags or https://github.com/hadolint/hadolint/releases
+  HADOLINT_TAG_VERSION: v2.15.1
+
+# env:
+#   BUILDKIT_PROGRESS: plain
+
+silent: true
+
+tasks:
+
+  build:
+    desc: Build the node and android images
+    deps: [lint]
+    cmds:
+      - task: build:target
+        vars: { TARGET: node }
+      - task: build:target
+        vars: { TARGET: android }
+
+  build:node:
+    desc: Build the node image
+    deps: [lint]
+    cmds:
+      - task: build:target
+        vars: { TARGET: node }
+
+  build:android:
+    desc: Build the android image (linux/amd64 only)
+    deps: [lint]
+    cmds:
+      - task: build:target
+        vars: { TARGET: android }
+
+  build:target:
+    internal: true
+    preconditions:
+      - sh: >
+          test '{{.TARGET}}' = 'node'
+          -o '{{.TARGET}}' = 'android'
+        msg: TARGET needs to contain the Docker TARGET [node, android]
+    vars:
+      VERSION: '{{.VERSION | default "latest"}}'
+      # The Android build-tools only ship for Linux x86_64
+      PLATFORM: '{{if eq .TARGET "android"}}--platform linux/amd64{{end}}'
+    cmds:
+      - docker build
+        {{.PLATFORM}}
+        --target {{.TARGET}}
+        --tag {{.DOCKER_REPO}}/{{.DOCKER_OWNER}}/{{.DOCKER_IMAGE_NAME}}/{{.TARGET}}:{{.VERSION}}
+        .
+    requires:
+      vars: [TARGET]
+
+  lint:
+    desc: Apply a Dockerfile linter (https://github.com/hadolint/hadolint)
+    cmds:
+      - docker run
+        --interactive
+        --rm
+        --volume $(pwd)/.hadolint.yml:/.hadolint.yml
+        hadolint/hadolint:{{.HADOLINT_TAG_VERSION}}
+        hadolint
+        --failure-threshold info
+        -
+        < Dockerfile
+
+  shell:node:
+    desc: Interactive shell in the node image, with the current directory mounted
+    interactive: true
+    cmds:
+      - task: do:shell
+        vars: { TARGET: node }
+
+  shell:android:
+    desc: Interactive shell in the android image, with the current directory mounted
+    interactive: true
+    cmds:
+      - task: do:shell
+        vars: { TARGET: android }
+
+  do:shell:
+    internal: true
+    interactive: true
+    vars:
+      PLATFORM: '{{if eq .TARGET "android"}}--platform linux/amd64{{end}}'
+    cmds:
+      - docker run
+        --interactive
+        --tty
+        --rm
+        {{.PLATFORM}}
+        --user $(id -u):$(id -g)
+        --volume $(pwd):/app
+        --volume mobile-build-cache:/cache
+        {{.DOCKER_REPO}}/{{.DOCKER_OWNER}}/{{.DOCKER_IMAGE_NAME}}/{{.TARGET}}:{{.VERSION | default "latest" }}
+    requires:
+      vars: [TARGET]
