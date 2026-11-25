@@ -77,3 +77,53 @@ USER $USER:$GROUP
 
 ENTRYPOINT ["fixuid", "-q"]
 CMD ["bash"]
+
+# Latest version of eclipse-temurin: https://hub.docker.com/_/eclipse-temurin/tags
+FROM eclipse-temurin:21.0.13_9-jdk-noble AS jdk
+
+FROM node AS android
+
+ARG USER=code
+ARG GROUP=code
+
+# Latest version of the command-line tools: https://developer.android.com/studio#command-line-tools-only
+ARG ANDROID_CMDLINE_TOOLS_VERSION=16111833
+ARG ANDROID_PLATFORM_VERSION=36
+# The build-tools of the platform: https://developer.android.com/tools/releases/build-tools
+ARG ANDROID_BUILD_TOOLS_VERSION=36.0.0
+# The default build-tools of the Android Gradle plugin 8.13, used by Capacitor 8. The plugin installs a missing default
+# at build time, which would be lost with the container.
+ARG ANDROID_AGP_BUILD_TOOLS_VERSION=35.0.0
+
+ENV JAVA_HOME=/opt/java/openjdk
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+ENV ANDROID_USER_HOME="$XDG_CACHE_HOME/android"
+ENV GRADLE_USER_HOME="$XDG_CACHE_HOME/gradle"
+
+COPY --from=jdk /opt/java/openjdk /opt/java/openjdk
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+USER 0:0
+
+RUN curl -fsSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
+    && mkdir -p "$ANDROID_HOME/cmdline-tools" \
+    && unzip -q /tmp/cmdline-tools.zip -d /tmp \
+    && mv /tmp/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest" \
+    # sdkmanager accepts the licenses of the packages it installs. It downloads the Android CLI it wraps into
+    # ANDROID_USER_HOME, which is removed again to keep it out of the image.
+    && ANDROID_USER_HOME=/tmp/android sdkmanager --install \
+        "platform-tools" \
+        "platforms;android-$ANDROID_PLATFORM_VERSION" \
+        "build-tools;$ANDROID_BUILD_TOOLS_VERSION" \
+        "build-tools;$ANDROID_AGP_BUILD_TOOLS_VERSION" \
+        > /dev/null \
+    && test -f "$ANDROID_HOME/licenses/android-sdk-license" \
+    # The SDK is writable for the user, so Gradle and sdkmanager can add packages
+    && chown -R "$USER":"$GROUP" "$ANDROID_HOME" \
+    && echo "  - $ANDROID_HOME" >> /etc/fixuid/config.yml \
+    # Cleanup
+    && rm -rf /tmp/*
+
+USER $USER:$GROUP
