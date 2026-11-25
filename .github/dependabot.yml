@@ -1,0 +1,32 @@
+# For all configuration options:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: "daily"
+    labels:
+      - "docker"
+    ignore:
+      # Node.js (active LTS) and the JDK (21) are bumped to a new major by hand
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      node:
+        patterns:
+          - "node"
+      eclipse-temurin:
+        patterns:
+          - "eclipse-temurin"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    labels:
+      - "github-actions"
+    groups:
+      specsnl-github-actions:
+        patterns:
+          - "specsnl/github-actions*"

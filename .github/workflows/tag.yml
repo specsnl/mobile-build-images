@@ -1,0 +1,61 @@
+name: Tags
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  actions: write
+  packages: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  linting:
+    name: Linting
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.5.0
+
+  build:
+    name: Build
+    uses: specsnl/github-actions/.github/workflows/build.yml@3.1.0
+    needs: linting
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: node
+            os: ubuntu-26.04
+            platform: linux/amd64
+          - target: node
+            os: ubuntu-26.04-arm
+            platform: linux/arm64
+          # The Android build-tools (aapt2, zipalign, ...) only ship for Linux x86_64
+          - target: android
+            os: ubuntu-26.04
+            platform: linux/amd64
+    with:
+      runs-on: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}
+      target: ${{ matrix.target }}
+      image-name: ghcr.io/${{ github.repository }}/${{ matrix.target }}
+
+  merge:
+    name: Merge
+    uses: specsnl/github-actions/.github/workflows/merge.yml@3.1.0
+    needs: build
+    strategy:
+      matrix:
+        target: [node, android]
+    with:
+      runs-on: ubuntu-26.04
+      target: ${{ matrix.target }}
+      image-name: ghcr.io/${{ github.repository }}/${{ matrix.target }}
